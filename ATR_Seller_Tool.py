@@ -20,8 +20,6 @@ root.title('Whatnot Seller Tool - By Abandoned Treasures Reclaimed')
 defEditor = "notepad.exe"
 
 
-username = []
-prod_name = []
 
 def resource_path(relative_path):
     try:
@@ -32,6 +30,9 @@ def resource_path(relative_path):
 
 root.iconbitmap(resource_path('16_3x_XIg_icon.ico'))
 def atr_tool(path):
+    username = []
+    prod_name = []
+    print_list=""
     with open(path, mode='r')as file:
         csvFile = csv.reader(file)
         next(csvFile)
@@ -128,6 +129,8 @@ def final_string(input):
     final_str = ""
     for i in range(0, len(input)):
         if i % 2 == 0:
+            final_str += '--------------------------------------------------------------------------------'
+            final_str += '\\n\'
             final_str += ('___ ' + input[i] + '\\n\' + '\\n\')
 
         else:
@@ -143,7 +146,7 @@ def final_string(input):
                         final_str += '\\n\'
             final_str += '\\n\'
             final_str += '\\n\'
-    final_str += '\\n\'
+    final_str += '--------------------------------------------------------------------------------'
     final_str += '\\n\'
     final_str += '\\n\'
     return final_str
@@ -157,8 +160,8 @@ def create_doc(info):
 def upload_file():
     file_path = filedialog.askopenfilename(filetypes=[(".csv Files", "*.csv")])
     if file_path:
-        print("Selected file:", file_path)
         tmp = atr_tool(file_path)
+        print(tmp)
         final_list = final_string(tmp)
         create_doc(final_list)
 
@@ -172,6 +175,13 @@ web_logo = customtkinter.CTkImage(light_image=Image.open(resource_path('web_logo
 
 web_label = customtkinter.CTkLabel(contain, text="", image=web_logo)
 web_label.pack(pady=30)
+
+wn_logo = customtkinter.CTkImage(light_image=Image.open(resource_path('wn.png')),
+                                  dark_image=Image.open(resource_path('wn.png')),
+                                  size=(445, 45))
+
+wn_label = customtkinter.CTkLabel(contain, text="", image=wn_logo)
+wn_label.pack(pady=30)
 
 atr_logo = customtkinter.CTkImage(light_image=Image.open(resource_path('toollogo.png')),
                                   dark_image=Image.open(resource_path('toollogo.png')),
@@ -192,21 +202,21 @@ help_label = customtkinter.CTkLabel(contain, text="", image=help_logo)
 help_label.pack(pady=10)
 
 tool_label = customtkinter.CTkLabel(contain, text="", image=free_logo)
-tool_label.pack(pady=10)
+tool_label.pack(pady=20)
 
 dono_logo = customtkinter.CTkImage(light_image=Image.open(resource_path('donate.png')),
                                    dark_image=Image.open(resource_path('donate.png')),
-                                   size=(586, 95))
+                                   size=(387, 63))
 
 dono_label = customtkinter.CTkLabel(contain, text="", image=dono_logo)
-dono_label.pack(pady=10)
+dono_label.pack()
 
 howto_logo = customtkinter.CTkImage(light_image=Image.open(resource_path('howto.png')),
                                     dark_image=Image.open(resource_path('howto.png')),
                                     size=(668, 324))
 
 howto_label = customtkinter.CTkLabel(contain, text="", image=howto_logo)
-howto_label.pack(pady=10)
+howto_label.pack(pady=30)
 
 button = customtkinter.CTkButton(master=contain, text="Upload Livestream Report", command=upload_file)
 button.pack(pady=30, ipady=20, ipadx=10)
