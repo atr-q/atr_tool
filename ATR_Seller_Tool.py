@@ -39,7 +39,9 @@ def atr_tool(path):
         for lines in csvFile:
             if len(lines[7]) == 0:
                 username.append(lines[2])
-                prod_name.append(lines[3])
+            else:
+                username.append(("--CANCELLED--  " + lines[2] + "  --CANCELLED--"))
+            prod_name.append(lines[3])
 
     uni_username = list(set(username))
 
