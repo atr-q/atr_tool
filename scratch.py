@@ -8,9 +8,6 @@ import os
 import sys
 import subprocess as sp
 
-code = b"""
-
-
 customtkinter.set_appearance_mode("dark")
 customtkinter.set_default_color_theme("dark-blue")
 root = customtkinter.CTk()
@@ -105,11 +102,12 @@ def atr_tool(path):
     temp_category = ""
     tmp = 0
     print_list = []
+    print_ship = []
     print_category = []
 
     for i in range(0, len(final_list)):         # Generates the simple to read printable list that removes the blanks from the master list
         if i % 2 == 0:                          # that would occur when a buyer did not purchase a product in a certain category
-            print_list.append(final_list[i])
+            print_list.append(final_list[i])        # name
         else:
             for j in range(0, len(final_list[i])):
                 if j % 2 != 0:
@@ -124,40 +122,43 @@ def atr_tool(path):
         if len(print_category) > 0:
             print_list.append(print_category)
             print_category = []
+        print_ship.append(print_list)
+        print_list = []
+    #print_ship.sort(key=lambda x: x[0])
+    print(print_ship)
+
     return print_list
 
 
 def final_string(input):
     final_str = ""
-    cnt = 1
     for i in range(0, len(input)):
         if i % 2 == 0:
             final_str += '--------------------------------------------------------------------------------'
-            final_str += '\\n\'
-            final_str += (str(cnt) + '.___ ' + input[i] + '\\n\' + '\\n\')
-            cnt += 1
+            final_str += '\n'
+            final_str += ('___ ' + input[i] + '\n' + '\n')
+
         else:
             for j in range(0, len(input[i])):
                 if j % 2 == 0:
-                    final_str += ('Category:\t\t' + input[i][j] + '\\n\')
+                    final_str += ('Category:\t\t' + input[i][j] + '\n')
                 else:
                     final_str += 'Item #:   \t\t'
                     for k in range(0, len(input[i][j])):
                         final_str += (input[i][j][k] + '   ')
-                    final_str += '\\n\'
+                    final_str += '\n'
                     if j != (len(input[i])-1):
-                        final_str += '\\n\'
-            final_str += '\\n\'
-            final_str += '\\n\'
+                        final_str += '\n'
+            final_str += '\n'
+            final_str += '\n'
     final_str += '--------------------------------------------------------------------------------'
-    final_str += '\\n\'
-    final_str += '\\n\'
-    cnt = 0
+    final_str += '\n'
+    final_str += '\n'
     return final_str
 
 def create_doc(info):
 	file_path = 'PRINT ME.txt'
-	with open(file_path, 'w', encoding="utf8") as file:
+	with open(file_path, 'w') as file:
 		file.write(info)
 	sp.Popen([defEditor, file_path])
 
@@ -165,7 +166,6 @@ def upload_file():
     file_path = filedialog.askopenfilename(filetypes=[(".csv Files", "*.csv")])
     if file_path:
         tmp = atr_tool(file_path)
-        print(tmp)
         final_list = final_string(tmp)
         create_doc(final_list)
 
@@ -222,9 +222,6 @@ howto_logo = customtkinter.CTkImage(light_image=Image.open(resource_path('howto.
 howto_label = customtkinter.CTkLabel(contain, text="", image=howto_logo)
 howto_label.pack(pady=30)
 
-case_label = customtkinter.CTkLabel(contain, text="IMPORTANT ***  8888 indicates an individual purchase from your Buy It Now or winner of a Giveaway  *** IMPORTANT")
-case_label.pack(pady=30)
-
 button = customtkinter.CTkButton(master=contain, text="Upload Livestream Report", command=upload_file)
 button.pack(pady=30, ipady=20, ipadx=10)
 
@@ -243,12 +240,4 @@ made_label = customtkinter.CTkLabel(contain, text="", image=made_logo)
 made_label.pack(pady=10)
 
 root.mainloop()
-"""
 
-key = Fernet.generate_key()
-encryption_type = Fernet(key)
-encrypted_message = encryption_type.encrypt(code)
-decrypted_message = encryption_type.decrypt(encrypted_message)
-
-decrypted_message.replace(b'|', b'\n')
-exec(decrypted_message)
