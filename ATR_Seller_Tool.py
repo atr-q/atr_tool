@@ -1,15 +1,17 @@
-from cryptography.fernet import Fernet
-import base64
+import duckdb
+import pandas
+import math
+import os
+import sys
+import numpy
+import subprocess as sp
+import docx
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.shared import Pt
+from docx.shared import Inches, Cm
 import customtkinter
 from PIL import Image, ImageTk
 from tkinter import filedialog
-import csv
-import os
-import sys
-import subprocess as sp
-
-code = b"""
-
 
 customtkinter.set_appearance_mode("dark")
 customtkinter.set_default_color_theme("dark-blue")
@@ -29,145 +31,125 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 root.iconbitmap(resource_path('16_3x_XIg_icon.ico'))
-def atr_tool(path):
-    username = []
-    prod_name = []
-    print_list=""
-    with open(path, mode='r', encoding="utf8")as file:
-        csvFile = csv.reader(file)
-        next(csvFile)
-        for lines in csvFile:
-            if len(lines[7]) == 0:
-                username.append(lines[2])
-            else:
-                username.append(("--CANCELLED--  " + lines[2] + "  --CANCELLED--"))
-            prod_name.append(lines[3])
 
-    uni_username = list(set(username))
+def get_all_names(np_arr):
+    unique_names = []
+    for i in range(0, len(np_arr)):
+        unique_names.append(np_arr[i][2])
+    unique_names = list(set(unique_names))
+    unique_names.sort()
+    return unique_names
 
-    in_arr = []
-    out_arr = []
-    p = 0
-    for i in range(0, len(uni_username)):
-        for j in range(0, len(username)):
-            if uni_username[i] == username[j]:
-                if p == 0:
-                    in_arr.append(uni_username[i])
-                    p = 1
-                s = prod_name[j]
-                s1 = s.split('#')           # Split at # because it seperates the weight(category) from auction number
-                if len(s1) < 2:             # If it didnt find a # because it was a givey or single item then assign it 8888 for seller notice
-                    s1.append('8888')
-                in_arr.append(s1)
-        out_arr.append(in_arr)
-        in_arr = []
-        p = 0
+def get_all_categories(np_arr):
+    unique_categories = []
+    for i in range(0, len(np_arr)):
+        unique_categories.append(np_arr[i][22])
+    unique_categories = list(set(unique_categories))
+    unique_categories.sort()
+    return unique_categories
 
-    prod_category = []                      # Gathers all product weights/categories from a sellers show
-    for i in range(0, len(out_arr)):
-        for j in range(0, len(out_arr[i])):
-            if len(out_arr[i][j]) == 2:
-                prod_category.append(out_arr[i][j][0])
+def rename_columns(livestream_report):
+    df = pandas.read_csv(livestream_report)
+    df = df.rename(columns=({'buyer': 'Buyer'}))
+    df = df.rename(columns=({'product name': 'product_name'}))
+    df = df.rename(columns=({'cancelled or failed': 'isCanceled'}))
+    df = df.rename(columns=({'sold price': 'sold_price'}))
+    df[['Category', 'Number']] = df.product_name.str.split("#", expand=True)
+    df.to_csv('temporary.csv', index=False)
+    return df.to_numpy()
 
-    uni_prod_category = list(set(prod_category))
+def get_shipment(name, category):
+    try:                 # Can add Buyer, Category, sold_price, product_name, isCancelled
+        query = ("SELECT Number "
+                 + "FROM 'temporary.csv' WHERE isCanceled IS NULL AND Category ='" + category + "' AND Buyer='" + name + "' ORDER BY Category")
+        shipment = duckdb.sql(query).df()
 
-    final_username = []
-    final_prod_category = []
-    for i in range(0, len(uni_username)):
-        final_username.append(uni_username[i])
-        final_username.append(uni_prod_category)
-
-    final_list = []
-    current_category = []
-    current_items = []
-
-    for i in range(0, len(uni_username)):           # Creates a master 3D Array with all unique buyers, all unique weights/categories,
-        final_list.append(uni_username[i])          # and each individual sale per buyer but also but also leaves blanks for categories with no purchase
-        for j in range(0, len(uni_prod_category)):
-            current_category.append(uni_prod_category[j])
-            current_username = ""
-            for x in range(0, len(out_arr)):
-                for y in range(0, len(out_arr[x])):
-                    if len(out_arr[x][y]) != 2:
-                        current_username = out_arr[x][y]
-                    else:
-                        if current_username == uni_username[i]:
-                            if uni_prod_category[j] == out_arr[x][y][0]:        # Converts string numbers to int so that they may be sorted
-                                current_items.append(int(out_arr[x][y][1]))
-            current_items.sort()
-            for x in range(0, len(current_items)):                              # Then converts them back to string for output
-                current_items[x] = str(current_items[x])
-            current_category.append(current_items)
-            current_items = []
-        final_list.append(current_category)
-        current_category = []
-
-    temp_category = ""
-    tmp = 0
-    print_list = []
-    print_category = []
-
-    for i in range(0, len(final_list)):         # Generates the simple to read printable list that removes the blanks from the master list
-        if i % 2 == 0:                          # that would occur when a buyer did not purchase a product in a certain category
-            print_list.append(final_list[i])
-        else:
-            for j in range(0, len(final_list[i])):
-                if j % 2 != 0:
-                    if len(final_list[i][j]) > 0:
-                        if tmp == 0:
-                            print_category.append(temp_category)
-                            tmp = 1
-                        print_category.append(final_list[i][j])
+        if not shipment.empty:
+            unsort_shipment = []
+            cnt = 1
+            for i in range(0, len(shipment)):
+                if math.isnan(shipment.iat[i, 0]):
+                    unsort_shipment.append(cnt)
+                    cnt += 1
                 else:
-                    temp_category = final_list[i][j]
-                tmp = 0
-        if len(print_category) > 0:
-            print_list.append(print_category)
-            print_category = []
-    return print_list
-
-
-def final_string(input):
-    final_str = ""
-    cnt = 1
-    for i in range(0, len(input)):
-        if i % 2 == 0:
-            final_str += '--------------------------------------------------------------------------------'
-            final_str += '\\n\'
-            final_str += (str(cnt) + '.___ ' + input[i] + '\\n\' + '\\n\')
-            cnt += 1
-        else:
-            for j in range(0, len(input[i])):
-                if j % 2 == 0:
-                    final_str += ('Category:\t\t' + input[i][j] + '\\n\')
+                    unsort_shipment.append(int(shipment.iat[i, 0]))
+            unsort_shipment.sort()
+            str_shipment = ""
+            for i in range(0, len(unsort_shipment)):
+                if i == 0:
+                    str_shipment += str(unsort_shipment[i])
                 else:
-                    final_str += 'Item #:   \t\t'
-                    for k in range(0, len(input[i][j])):
-                        final_str += (input[i][j][k] + '   ')
-                    final_str += '\\n\'
-                    if j != (len(input[i])-1):
-                        final_str += '\\n\'
-            final_str += '\\n\'
-            final_str += '\\n\'
-    final_str += '--------------------------------------------------------------------------------'
-    final_str += '\\n\'
-    final_str += '\\n\'
-    cnt = 0
-    return final_str
+                    str_shipment += ("     " + str(unsort_shipment[i]))
+            return str_shipment
+        else:
+            return -1
+    except duckdb.duckdb.IOException:
+        print("ERROR: File is open in other program")
+    except duckdb.duckdb.ParserException:
+        print("Error: Incorrect Parameter specified")
+
+def get_all_shipments(names, categories):
+    all_shipments = []
+    for i in range(0, len(names)):
+        shipments = []
+        for j in range(0, len(categories)):
+            str_shipment = get_shipment(names[i], categories[j])
+            if str_shipment != -1:
+                shipments.append([categories[j], str_shipment])
+        all_shipments.append([names[i], shipments])
+    return all_shipments
 
 def create_doc(info):
-	file_path = 'PRINT ME.txt'
-	with open(file_path, 'w', encoding="utf8") as file:
-		file.write(info)
-	sp.Popen([defEditor, file_path])
+
+    df = pandas.DataFrame(info)
+    doc = docx.Document()
+
+    style = doc.styles['Normal']
+    font = style.font
+    font.name = 'Arial'
+    font.size = Pt(10)
+
+    sections = doc.sections
+    for section in sections:
+        section.top_margin = Cm(1)
+        section.bottom_margin = Cm(1)
+        section.left_margin = Cm(3)
+        section.right_margin = Cm(3)
+
+    for i in range(0, len(df)):
+        buyer = df.iat[i,0]
+        shipment = df.iat[i, 1]
+        heading = '___ ' + str(i+1) + '. ' + buyer
+        doc.add_heading(heading, level=1)
+        table = doc.add_table(rows=0, cols=2)
+        table.TopPadding =Cm(20)
+        cnt = 1
+        for i in range(0, len(shipment)):
+            category = shipment[i][0]
+            numbers = shipment[i][1]
+            cat_cells = table.add_row().cells
+            cat_cells[0].text = 'Category: '
+            cat_cells[1].text = str(category)
+            num_cells = table.add_row().cells
+            num_cells[0].text = 'Item #: '
+            num_cells[1].text = str(numbers)
+
+    doc.save('PRINT ME.docx')
+    os.startfile(resource_path('PRINT ME.docx'))
+    os.remove(resource_path('temporary.csv'))
+    button.configure(text="Upload Livestream Report")
 
 def upload_file():
+    button.configure(text="Creating Your Document\n\nPlease Wait")
     file_path = filedialog.askopenfilename(filetypes=[(".csv Files", "*.csv")])
+    button.configure(text="Upload Livestream Report")
     if file_path:
-        tmp = atr_tool(file_path)
-        print(tmp)
-        final_list = final_string(tmp)
-        create_doc(final_list)
+        file_name = file_path
+        file = rename_columns(file_name)
+        all_names = get_all_names(file)
+        all_categories = get_all_categories(file)
+        shipments = get_all_shipments(all_names, all_categories)
+        create_doc(shipments)
 
 
 contain = customtkinter.CTkScrollableFrame(master=root)
@@ -222,9 +204,6 @@ howto_logo = customtkinter.CTkImage(light_image=Image.open(resource_path('howto.
 howto_label = customtkinter.CTkLabel(contain, text="", image=howto_logo)
 howto_label.pack(pady=30)
 
-case_label = customtkinter.CTkLabel(contain, text="IMPORTANT ***  8888 indicates an individual purchase from your Buy It Now or winner of a Giveaway  *** IMPORTANT")
-case_label.pack(pady=30)
-
 button = customtkinter.CTkButton(master=contain, text="Upload Livestream Report", command=upload_file)
 button.pack(pady=30, ipady=20, ipadx=10)
 
@@ -243,12 +222,3 @@ made_label = customtkinter.CTkLabel(contain, text="", image=made_logo)
 made_label.pack(pady=10)
 
 root.mainloop()
-"""
-
-key = Fernet.generate_key()
-encryption_type = Fernet(key)
-encrypted_message = encryption_type.encrypt(code)
-decrypted_message = encryption_type.decrypt(encrypted_message)
-
-decrypted_message.replace(b'|', b'\n')
-exec(decrypted_message)
