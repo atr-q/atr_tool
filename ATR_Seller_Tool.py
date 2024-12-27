@@ -1,26 +1,24 @@
-import duckdb
-import pandas
-import math
-import os
-import sys
-import numpy
+import duckdb, pandas
+import math, numpy
+import os, sys, errno
 import subprocess as sp
 import docx
-from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.shared import Pt
-from docx.shared import Inches, Cm
+from docx.shared import Cm
 import customtkinter
-from PIL import Image, ImageTk
+from PIL import Image
 from tkinter import filedialog
 
 customtkinter.set_appearance_mode("dark")
-customtkinter.set_default_color_theme("dark-blue")
+customtkinter.set_default_color_theme("green")
 root = customtkinter.CTk()
-root.geometry("750x500")
-root.minsize(width=650, height=300)
+root.geometry("1280x750")
+root.minsize(width=600, height=400)
 root.title('Whatnot Seller Tool - By Abandoned Treasures Reclaimed')
+pf = os.getenv("ProgramFiles")
+wordEditor = pf + "\\Windows NT\\Accessories\\wordpad.exe"
 defEditor = "notepad.exe"
-
+radio_var = customtkinter.StringVar(value="n")
 
 
 def resource_path(relative_path):
@@ -31,6 +29,13 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 root.iconbitmap(resource_path('16_3x_XIg_icon.ico'))
+
+def silent_remove(filename):
+    try:
+        os.remove(resource_path(filename))
+    except OSError as e: # this would be "except OSError, e:" before Python 2.6
+        if e.errno != errno.ENOENT: # errno.ENOENT = no such file or directory
+            raise # re-raise exception if a different error occurred
 
 def get_all_names(np_arr):
     unique_names = []
@@ -99,7 +104,7 @@ def get_all_shipments(names, categories):
         all_shipments.append([names[i], shipments])
     return all_shipments
 
-def create_doc(info):
+def create_word_doc(info):
 
     df = pandas.DataFrame(info)
     doc = docx.Document()
@@ -119,25 +124,47 @@ def create_doc(info):
     for i in range(0, len(df)):
         buyer = df.iat[i,0]
         shipment = df.iat[i, 1]
-        heading = '___ ' + str(i+1) + '. ' + buyer
+        heading = str(i+1) + '.___ ' + buyer
         doc.add_heading(heading, level=1)
         table = doc.add_table(rows=0, cols=2)
-        table.TopPadding =Cm(20)
-        cnt = 1
-        for i in range(0, len(shipment)):
-            category = shipment[i][0]
-            numbers = shipment[i][1]
+        for j in range(0, len(shipment)):
+            category = shipment[j][0]
+            numbers = shipment[j][1]
             cat_cells = table.add_row().cells
             cat_cells[0].text = 'Category: '
             cat_cells[1].text = str(category)
             num_cells = table.add_row().cells
             num_cells[0].text = 'Item #: '
             num_cells[1].text = str(numbers)
-
-    doc.save('PRINT ME.docx')
-    os.startfile(resource_path('PRINT ME.docx'))
+    filename = 'PRINT ME.docx'
+    if radio_var.get() == 'w':
+        silent_remove(filename)
+        doc.save(filename)
+        sp.Popen([wordEditor, filename])
+    elif radio_var.get() == 'm':
+        doc.save(filename)
+        os.startfile(resource_path(filename))
     os.remove(resource_path('temporary.csv'))
     button.configure(text="Upload Livestream Report")
+
+def create_txt_doc(info):
+    df = pandas.DataFrame(info)
+    final_str = ""
+    for i in range(0, len(df)):
+        buyer = df.iat[i,0]
+        shipment = df.iat[i, 1]
+        final_str += '--------------------------------------------------------------------------------\n'
+        final_str += str(i+1) + '.___ ' + buyer + '\n'
+        for j in range(0, len(shipment)):
+            category = shipment[j][0]
+            numbers = shipment[j][1]
+            final_str += ('Category:\t\t' + category + '\n')
+            final_str += ('Item #:   \t\t' + numbers + '\n')
+            final_str += '\n\n'
+    file_path = 'PRINT ME.txt'
+    with open(file_path, 'w') as file:
+        file.write(final_str)
+    sp.Popen([defEditor, file_path])
 
 def upload_file():
     button.configure(text="Creating Your Document\n\nPlease Wait")
@@ -149,76 +176,34 @@ def upload_file():
         all_names = get_all_names(file)
         all_categories = get_all_categories(file)
         shipments = get_all_shipments(all_names, all_categories)
-        create_doc(shipments)
+        if radio_var.get() == 'm' or radio_var.get() == 'w':
+            create_word_doc(shipments)
+        elif radio_var.get() == 'n':
+            create_txt_doc(shipments)
 
 
-contain = customtkinter.CTkScrollableFrame(master=root)
-contain.pack(pady=0, padx=0, fill="both", expand=True)
 
-web_logo = customtkinter.CTkImage(light_image=Image.open(resource_path('web_logo.png')),
-                                  dark_image=Image.open(resource_path('web_logo.png')),
-                                  size=(535, 27))
+contain = customtkinter.CTkScrollableFrame(master=root, fg_color='#0E0C07')
+contain.pack(fill="both", expand=True)
 
-web_label = customtkinter.CTkLabel(contain, text="", image=web_logo)
-web_label.pack(pady=30)
 
-wn_logo = customtkinter.CTkImage(light_image=Image.open(resource_path('wn.png')),
-                                  dark_image=Image.open(resource_path('wn.png')),
-                                  size=(445, 45))
+gui = customtkinter.CTkImage(light_image=Image.open(resource_path('gui.png')),
+                                  dark_image=Image.open(resource_path('gui.png')),
+                                  size=(1280, 520))
 
-wn_label = customtkinter.CTkLabel(contain, text="", image=wn_logo)
-wn_label.pack(pady=30)
+gui_label = customtkinter.CTkLabel(contain, text="", image=gui)
+gui_label.pack()
 
-atr_logo = customtkinter.CTkImage(light_image=Image.open(resource_path('toollogo.png')),
-                                  dark_image=Image.open(resource_path('toollogo.png')),
-                                  size=(575, 256))
+doc_choice_notepad = customtkinter.CTkRadioButton(contain, text="Notepad Document", value='n', fg_color='#D6B44A', hover_color='white', variable=radio_var)
+doc_choice_notepad.pack(pady=5)
 
-atr_label = customtkinter.CTkLabel(contain, text="", image=atr_logo)
-atr_label.pack(pady=30)
+doc_choice_wordpad = customtkinter.CTkRadioButton(contain, text="Wordpad Document", value='w', fg_color='#D6B44A', hover_color='white', variable=radio_var)
+doc_choice_wordpad.pack(pady=5)
 
-help_logo = customtkinter.CTkImage(light_image=Image.open(resource_path('help.png')),
-                                   dark_image=Image.open(resource_path('help.png')),
-                                   size=(568, 56))
+doc_choice_docx = customtkinter.CTkRadioButton(contain, text="Microsoft Word Document", value='m', fg_color='#D6B44A', hover_color='white', variable=radio_var)
+doc_choice_docx.pack(pady=5)
 
-free_logo = customtkinter.CTkImage(light_image=Image.open(resource_path('free.png')),
-                                   dark_image=Image.open(resource_path('free.png')),
-                                   size=(606, 107))
-
-help_label = customtkinter.CTkLabel(contain, text="", image=help_logo)
-help_label.pack(pady=10)
-
-tool_label = customtkinter.CTkLabel(contain, text="", image=free_logo)
-tool_label.pack(pady=20)
-
-dono_logo = customtkinter.CTkImage(light_image=Image.open(resource_path('donate.png')),
-                                   dark_image=Image.open(resource_path('donate.png')),
-                                   size=(387, 63))
-
-dono_label = customtkinter.CTkLabel(contain, text="", image=dono_logo)
-dono_label.pack()
-
-howto_logo = customtkinter.CTkImage(light_image=Image.open(resource_path('howto.png')),
-                                    dark_image=Image.open(resource_path('howto.png')),
-                                    size=(668, 324))
-
-howto_label = customtkinter.CTkLabel(contain, text="", image=howto_logo)
-howto_label.pack(pady=30)
-
-button = customtkinter.CTkButton(master=contain, text="Upload Livestream Report", command=upload_file)
+button = customtkinter.CTkButton(master=contain, text="Upload Livestream Report", fg_color='#D6B44A', hover_color='white', text_color='black', command=upload_file)
 button.pack(pady=30, ipady=20, ipadx=10)
-
-promo_logo = customtkinter.CTkImage(light_image=Image.open(resource_path('promo.png')),
-                                    dark_image=Image.open(resource_path('promo.png')),
-                                    size=(613, 127))
-
-promo_label = customtkinter.CTkLabel(contain, text="", image=promo_logo)
-promo_label.pack(pady=10)
-
-made_logo = customtkinter.CTkImage(light_image=Image.open(resource_path('madeby.png')),
-                                   dark_image=Image.open(resource_path('madeby.png')),
-                                   size=(519, 56))
-
-made_label = customtkinter.CTkLabel(contain, text="", image=made_logo)
-made_label.pack(pady=10)
 
 root.mainloop()
