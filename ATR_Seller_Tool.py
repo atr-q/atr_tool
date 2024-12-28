@@ -1,5 +1,5 @@
 import duckdb, pandas
-import math
+import math, numpy
 import os, sys, errno
 import subprocess as sp
 import docx
@@ -10,9 +10,10 @@ from PIL import Image
 from tkinter import filedialog
 
 customtkinter.set_appearance_mode("dark")
+customtkinter.set_default_color_theme("green")
 root = customtkinter.CTk()
-root.minsize(width=1280, height=720)
-root.after(0, lambda:root.state('zoomed'))
+root.geometry("1280x750")
+root.minsize(width=600, height=400)
 root.title('Whatnot Seller Tool - By Abandoned Treasures Reclaimed')
 pf = os.getenv("ProgramFiles")
 wordEditor = pf + "\\Windows NT\\Accessories\\wordpad.exe"
@@ -91,7 +92,6 @@ def get_shipment(name, category):
         print("ERROR: File is open in other program")
     except duckdb.duckdb.ParserException:
         print("Error: Incorrect Parameter specified")
-    return
 
 def get_all_shipments(names, categories):
     all_shipments = []
@@ -124,8 +124,6 @@ def create_word_doc(info):
     for i in range(0, len(df)):
         buyer = df.iat[i,0]
         shipment = df.iat[i, 1]
-        if radio_var.get() == 'm':
-            doc.add_paragraph('_______________________________________________________________________________', style=None)
         heading = str(i+1) + '.___ ' + buyer
         doc.add_heading(heading, level=1)
         table = doc.add_table(rows=0, cols=2)
@@ -138,27 +136,16 @@ def create_word_doc(info):
             num_cells = table.add_row().cells
             num_cells[0].text = 'Item #: '
             num_cells[1].text = str(numbers)
-        doc.add_paragraph('\n', style=None)
     filename = 'PRINT ME.docx'
-
-    try:
+    if radio_var.get() == 'w':
+        silent_remove(filename)
         doc.save(filename)
-        if radio_var.get() == 'm':
-            os.startfile(resource_path(filename))
-        elif  radio_var.get() == 'w':
-            sp.Popen([wordEditor, filename])
-        os.remove(resource_path('temporary.csv'))
-        button.configure(text="Upload Livestream Report")
-    except PermissionError:
-        print('Error: Word Editor is open')
-        err_message = ''
-        if radio_var.get() == 'w':
-            err_message = "Error: Close Microsoft Word or Wordpad and\n\nClick to Re-Upload Livestream Report"
-        elif radio_var.get() == 'm':
-            err_message = "Error: Close Microsoft Word and\n\nClick to Re-Upload Livestream Report"
-        button.configure(text=err_message)
-    return
-
+        sp.Popen([wordEditor, filename])
+    elif radio_var.get() == 'm':
+        doc.save(filename)
+        os.startfile(resource_path(filename))
+    os.remove(resource_path('temporary.csv'))
+    button.configure(text="Upload Livestream Report")
 
 def create_txt_doc(info):
     df = pandas.DataFrame(info)
@@ -178,7 +165,6 @@ def create_txt_doc(info):
     with open(file_path, 'w') as file:
         file.write(final_str)
     sp.Popen([defEditor, file_path])
-    return
 
 def upload_file():
     button.configure(text="Creating Your Document\n\nPlease Wait")
@@ -197,7 +183,7 @@ def upload_file():
 
 
 
-contain = customtkinter.CTkScrollableFrame(master=root, fg_color='#0E0C07', scrollbar_button_color='#D6B44A')
+contain = customtkinter.CTkScrollableFrame(master=root, fg_color='#0E0C07')
 contain.pack(fill="both", expand=True)
 
 
