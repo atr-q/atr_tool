@@ -15,6 +15,7 @@ root.minsize(width=1280, height=720)
 root.after(0, lambda:root.state('zoomed'))
 root.title('Whatnot Seller Tool - By Abandoned Treasures Reclaimed')
 pf = os.getenv("ProgramFiles")
+microEditor = pf + "\\Microsoft Office\\root\\Office16\\WINWORD.EXE"
 wordEditor = pf + "\\Windows NT\\Accessories\\wordpad.exe"
 defEditor = "notepad.exe"
 radio_var = customtkinter.StringVar(value="n")
@@ -140,22 +141,24 @@ def create_word_doc(info):
             num_cells[1].text = str(numbers)
         doc.add_paragraph('\n', style=None)
     filename = 'PRINT ME.docx'
+    if radio_var.get() == 'w':
+        filename = 'PRINT ME!.docx'
 
     try:
         doc.save(filename)
         if radio_var.get() == 'm':
-            os.startfile(resource_path(filename))
+            sp.Popen([microEditor, resource_path(filename)])
         elif  radio_var.get() == 'w':
-            sp.Popen([wordEditor, filename])
+            sp.Popen([wordEditor, resource_path(filename)])
         os.remove(resource_path('temporary.csv'))
         button.configure(text="Upload Livestream Report")
     except PermissionError:
         print('Error: Word Editor is open')
         err_message = ''
         if radio_var.get() == 'w':
-            err_message = "Error: Close Microsoft Word or Wordpad and\n\nClick to Re-Upload Livestream Report"
+            err_message = "Error File Already Open\n\nClose Wordpad and\nClick to Re-Upload Livestream Report"
         elif radio_var.get() == 'm':
-            err_message = "Error: Close Microsoft Word and\n\nClick to Re-Upload Livestream Report"
+            err_message = "Error File Already Open\n\nClose Microsoft Word and\nClick to Re-Upload Livestream Report"
         button.configure(text=err_message)
     return
 
