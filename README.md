@@ -13,7 +13,7 @@ which contains a list of all unique buyers and their subsequent live purchases, 
 # Pyinstaller Windows Command
  - Just copy and paste into terminal to create a single executable application
 
-pyinstaller --onefile --windowed --add-data "gui.logo;." --add-data "16_3x_XIg_icon.ico;." --icon=16_3x_XIg_icon.ico ATR_Seller_Tool.py
+pyinstaller --onefile --windowed --add-data "gui.png;." --add-data "16_3x_XIg_icon.ico;." --icon=16_3x_XIg_icon.ico ATR_Seller_Tool.py
 
 # Pyinstaller Mac Command
  - Coming Soon
@@ -23,6 +23,7 @@ pyinstaller --onefile --windowed --add-data "gui.logo;." --add-data "16_3x_XIg_i
    - Currently Impossible with livestream report document
  - ~~Differentiate completed purchases and cancellations~~
  - Host on public webserver rather than standalone application
+ - ~~Track coupon data~~
 
 
 

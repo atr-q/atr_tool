@@ -48,10 +48,18 @@ def get_all_names(np_arr):
 def get_all_categories(np_arr):
     unique_categories = []
     for i in range(0, len(np_arr)):
-        unique_categories.append(np_arr[i][22])
+        unique_categories.append(str(np_arr[i][22]))
     unique_categories = list(set(unique_categories))
     unique_categories.sort()
     return unique_categories
+
+def get_all_coupons(np_arr):
+    unique_coupons = []
+    for i in range(0, len(np_arr)):
+        if str(np_arr[i][16]) != 'nan':
+            unique_coupons.append(np_arr[i][16])
+    unique_coupons = list(set(unique_coupons))
+    return unique_coupons
 
 def rename_columns(livestream_report):
     df = pandas.read_csv(livestream_report)
@@ -59,32 +67,93 @@ def rename_columns(livestream_report):
     df = df.rename(columns=({'product name': 'product_name'}))
     df = df.rename(columns=({'cancelled or failed': 'isCanceled'}))
     df = df.rename(columns=({'sold price': 'sold_price'}))
+    df = df.rename(columns=({'coupon code': 'coupon_code'}))
+    df = df.rename(columns=({'coupon price': 'coupon_price'}))
+    df = df.rename(columns=({'gifted to': 'gifted_to'}))
+    df = df.rename(columns=({'product quantity': 'product_quantity'}))
     df[['Category', 'Number']] = df.product_name.str.split("#", expand=True)
     df.to_csv('temporary.csv', index=False)
     return df.to_numpy()
 
-def get_shipment(name, category):
-    try:                 # Can add Buyer, Category, sold_price, product_name, isCancelled
-        query = ("SELECT Number "
-                 + "FROM 'temporary.csv' WHERE isCanceled IS NULL AND Category ='" + category + "' AND Buyer='" + name + "' ORDER BY Category")
-        shipment = duckdb.sql(query).df()
+def get_coupon_data(code):
+    coupon_data = []
+    for i in range(0, len(code)):
+        try:
+            query = ("SELECT coupon_price "
+                     + "FROM 'temporary.csv' WHERE isCanceled IS NULL AND coupon_code ='" + str(code[i]) + "'")
+            coupon = duckdb.sql(query).df()
+            total_discount = 0
+            for j in range(0, len(coupon)):
+                price = str(coupon.iat[j, 0]).replace('$', '')
+                total_discount += float(price)
+            coupon_data.append([code[i], total_discount, int(len(coupon))])
+        except duckdb.duckdb.IOException:
+            print("ERROR: File is open in other program")
+        except duckdb.duckdb.ParserException:
+            print("Error: Incorrect Parameter specified")
+    grand_total = 0
+    grand_uses = 0
+    for i in range(0, len(coupon_data)):
+        grand_total += round(coupon_data[i][1], 2)
+        grand_uses += coupon_data[i][2]
+    coupon_data.append(['Grand Total', format(grand_total, '.2f'), grand_uses])
+    return coupon_data
 
+def get_coupon_str(data):
+    coupon_str = ""
+    for i in range(0, (len(data)-1)):
+        code = data[i][0]
+        discount = format(data[i][1], '.2f')
+        number = data[i][2]
+        if radio_var.get() == 'w' or radio_var.get() == 'm':
+            coupon_str += 'Coupon Code: \t\t' + code + '\nDiscount Total: \t\t$' + str(discount) + '\n# of Uses: \t\t' + str(number) + '\n\n'
+        elif radio_var.get() == 'n':
+            coupon_str += 'Coupon Code: \t\t' + code + '\nDiscount Total: \t$' + str(discount) + '\n# of Uses: \t\t' + str(number) + '\n\n'
+    coupon_str += 'Discount Grand Total: \t$' + str(data[len(data)-1][1]) + '\n'
+    coupon_str += '# of Coupons Applied: \t' + str(data[len(data)-1][2]) +'\n\n'
+    return coupon_str
+
+def get_shipment(name, category):
+    cancelled_str = '\nCancelled:\t\t'
+    try:                 # Can add Buyer, Category, sold_price, product_name, isCancelled
+        query = ("SELECT Number, isCanceled, product_quantity "
+                 + "FROM 'temporary.csv' WHERE Category ='" + category + "' AND Buyer='" + name + "' ORDER BY Category")
+        shipment = duckdb.sql(query).df()
         if not shipment.empty:
             unsort_shipment = []
             cnt = 1
             for i in range(0, len(shipment)):
-                if math.isnan(shipment.iat[i, 0]):
-                    unsort_shipment.append(cnt)
-                    cnt += 1
+                if shipment.iat[i, 1] == None:
+                    if math.isnan(shipment.iat[i, 0]):
+                        if int(shipment.iat[i, 2]) > 1:
+                            unsort_shipment.append(('x' + str(shipment.iat[i, 2])))
+                        else:
+                            unsort_shipment.append(cnt)
+                            cnt += 1
+
+                    else:
+                        unsort_shipment.append(int(shipment.iat[i, 0]))
                 else:
-                    unsort_shipment.append(int(shipment.iat[i, 0]))
-            unsort_shipment.sort()
+                    dup_check = 0
+                    for j in range(0, len(unsort_shipment)):
+                        if str(unsort_shipment[j]) == str(shipment.iat[i, 0]):
+                            dup_check = 1
+                    if dup_check == 0:
+                        cancelled_str += (str(shipment.iat[i, 0]) + "     ")
+            try:
+                unsort_shipment.sort()
+            except TypeError:
+                print('a')
+
+            sorted_shipment = unsort_shipment
             str_shipment = ""
-            for i in range(0, len(unsort_shipment)):
+            for i in range(0, len(sorted_shipment)):
                 if i == 0:
-                    str_shipment += str(unsort_shipment[i])
+                    str_shipment += str(sorted_shipment[i])
                 else:
-                    str_shipment += ("     " + str(unsort_shipment[i]))
+                    str_shipment += ("     " + str(sorted_shipment[i]))
+            if len(cancelled_str) > 15:
+                str_shipment += cancelled_str
             return str_shipment
         else:
             return -1
@@ -105,7 +174,7 @@ def get_all_shipments(names, categories):
         all_shipments.append([names[i], shipments])
     return all_shipments
 
-def create_word_doc(info):
+def create_word_doc(info, coupon):
 
     df = pandas.DataFrame(info)
     doc = docx.Document()
@@ -121,7 +190,8 @@ def create_word_doc(info):
         section.bottom_margin = Cm(1)
         section.left_margin = Cm(3)
         section.right_margin = Cm(3)
-
+    doc.add_heading('Coupon and Rewards Program Discount Info')
+    doc.add_paragraph('\n' + coupon)
     for i in range(0, len(df)):
         buyer = df.iat[i,0]
         shipment = df.iat[i, 1]
@@ -147,10 +217,10 @@ def create_word_doc(info):
     try:
         doc.save(filename)
         if radio_var.get() == 'm':
-            sp.Popen([microEditor, resource_path(filename)])
+            sp.Popen([microEditor, filename])
         elif  radio_var.get() == 'w':
-            sp.Popen([wordEditor, resource_path(filename)])
-        os.remove(resource_path('temporary.csv'))
+            sp.Popen([wordEditor, filename])
+        os.remove('temporary.csv')
         button.configure(text="Upload Livestream Report")
     except PermissionError:
         print('Error: Word Editor is open')
@@ -163,9 +233,11 @@ def create_word_doc(info):
     return
 
 
-def create_txt_doc(info):
+def create_txt_doc(info, coupon):
     df = pandas.DataFrame(info)
-    final_str = ""
+    final_str = '--------------------------------------------------------------------------------\n'
+    final_str += 'Coupon and Rewards Program Discount Info\n\n'
+    final_str += coupon + '\n\n'
     for i in range(0, len(df)):
         buyer = df.iat[i,0]
         shipment = df.iat[i, 1]
@@ -192,11 +264,14 @@ def upload_file():
         file = rename_columns(file_name)
         all_names = get_all_names(file)
         all_categories = get_all_categories(file)
+        all_coupons = get_all_coupons(file)
+        coupon_arr = get_coupon_data(all_coupons)
+        coupon_data = get_coupon_str(coupon_arr)
         shipments = get_all_shipments(all_names, all_categories)
         if radio_var.get() == 'm' or radio_var.get() == 'w':
-            create_word_doc(shipments)
+            create_word_doc(shipments, coupon_data)
         elif radio_var.get() == 'n':
-            create_txt_doc(shipments)
+            create_txt_doc(shipments, coupon_data)
 
 
 
